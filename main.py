@@ -2,7 +2,6 @@
 import pygame
 import numpy as np
 import math
-import time
 
 # Initialize Pygame
 pygame.init()
@@ -20,11 +19,9 @@ x, y, z = np.meshgrid(np.linspace(-3, 3, 30), np.linspace(-3, 3, 30), np.linspac
 psi_3d = wave_function_3d(x, y, z, 0)
 probability_density = np.abs(psi_3d)**2
 
-# Define gravity constant and floor collision parameters
-gravity = 0.1
-floor_value = 5  # Assuming your floor is at y=5
-restitution_coefficient = 1  # 80% of velocity is preserved after bounce
-
+# Gravity-like effect based on a massive object
+massive_object_pos = np.array([0, 0, 0])  # Position of the massive object
+gravitational_constant = 0.1  # Adjust this for stronger/weaker gravity-like effect
 
 # Flatten arrays for easy iteration
 particles = np.vstack((x.flatten(), y.flatten(), z.flatten(), probability_density.flatten(), np.zeros_like(x.flatten()), np.zeros_like(y.flatten()), np.zeros_like(z.flatten()))).T
@@ -63,7 +60,7 @@ def run():
         # Camera control
         keys = pygame.key.get_pressed()
         if keys[pygame.K_LEFT]:
-            angle_y -= 10  # Smaller increment for smoother rotation
+            angle_y -= 10
         if keys[pygame.K_RIGHT]:
             angle_y += 10
         if keys[pygame.K_UP]:
@@ -79,23 +76,21 @@ def run():
 
         # Update particles' positions and velocities
         for particle in particles:
-            # Update velocity due to gravity
-            particle[5] += gravity  # Add gravity to y-velocity component
+            particle_pos = particle[:3]
+            direction_to_massive_object = massive_object_pos - particle_pos
+            distance_to_massive_object = np.linalg.norm(direction_to_massive_object)
+            gravitational_effect = gravitational_constant / distance_to_massive_object**2
+
+            # Adjust velocity towards the massive object
+            particle[4:] += gravitational_effect * direction_to_massive_object / distance_to_massive_object
 
             # Update position based on velocity
-            particle[0] += particle[4]  # Update x position with x velocity
-            particle[1] += particle[5]  # Update y position with y velocity
-            particle[2] += particle[6]  # Update z position with z velocity
-
-            # Floor collision
-            if particle[1] > floor_value:
-                particle[1] = floor_value
-                particle[5] = -particle[5] * restitution_coefficient  # Bounce back with energy loss
+            particle[:3] += particle[4:]
 
         # Draw each particle
         for particle in particles:
             x2d, y2d, scale = project_3d_to_2d(particle, angle_x, angle_y, zoom)
-            size = max(1, int(scale * particle[3] * 10))  # Size based on probability density
+            size = max(1, int(scale * particle[3] * 10))
             color_intensity = int(particle[3] * 255)
             color = (color_intensity, color_intensity, 255)
             pygame.draw.circle(screen, color, (x2d, y2d), size)
